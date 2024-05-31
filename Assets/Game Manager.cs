@@ -1,29 +1,55 @@
-using System.Collections.Generic;
+ï»¿using System.Collections.Generic;
 using UnityEngine;
+using TMPro;
 
 public class GameManager : MonoBehaviour
 {
     public GameObject playerPrefab;
     public GameObject boxPrefab;
-
+    public GameObject ClearTarget;
     public GameObject ClearText;
+    public GameObject WallPrefab;
+    public TMP_Text moveCounterText;
     int[,] map;
     GameObject[,] field;
     GameObject instance;
+    int moveCount;
+    bool isGameCleared = false;
 
-    /// <summary>
-    /// —^‚¦‚ç‚ê‚½”š‚ğƒ}ƒbƒvã‚ÅˆÚ“®‚³‚¹‚é
-    /// </summary>
-    /// <param name="number">ˆÚ“®‚³‚¹‚é”š</param>
-    /// <param name="moveFrom">Œ³‚ÌˆÊ’u</param>
-    /// <param name="moveTo">ˆÚ“®æ‚ÌˆÊ’u</param>
-    /// <returns>ˆÚ“®‰Â”\‚È true</returns>
-    bool MoveNumber(Vector2Int movefrom, Vector2Int moveto)
+    void ResetGame()
+    {
+        moveCount = 0; // resetCount
+        UpdateMoveCounterText(); // æ›´æ–°
+        isGameCleared = false; // resetClear
+                               // Clear the field
+
+
+        for (int y = 0; y < field.GetLength(0); y++)
+        {
+            for (int x = 0; x < field.GetLength(1); x++)
+            {
+                if (field[y, x] != null)
+                {
+                    Destroy(field[y, x]);
+                    field[y, x] = null;
+                }
+            }
+        }
+
+        // Reset the map and field
+        Start();
+        ClearText.SetActive(false);
+    }
+
+
+    bool MoveNumber(Vector2Int movefrom, Vector2Int moveto, bool isPlayerMove = false)
     {
         if (moveto.y < 0 || moveto.y >= field.GetLength(0))
             return false;
 
         if (moveto.x < 0 || moveto.x >= field.GetLength(1))
+            return false;
+        if (map[moveto.y, moveto.x] == 4)
             return false;
 
         if (field[moveto.y, moveto.x] != null && field[moveto.y, moveto.x].tag == "Box") {
@@ -32,16 +58,17 @@ public class GameManager : MonoBehaviour
             if (!success) { return false; }
         }
 
-        //field[movefrom.y, movefrom.x].transform.position =
-        //    new Vector3(moveto.x, -1 * moveto.y, 0);    // ƒV[ƒ“ã‚ÌƒIƒuƒWƒFƒNƒg‚ğ“®‚©‚·
-
-
-
-        // field ‚Ìƒf[ƒ^‚ğ“®‚©‚·
-        Vector3 moveToPositon = new Vector3(moveto.x, map.GetLength(0) - moveto.y, 0);
-        field[movefrom.y, movefrom.x].GetComponent<Move>().MoveTo(moveToPositon);
         field[moveto.y, moveto.x] = field[movefrom.y, movefrom.x];
         field[movefrom.y, movefrom.x] = null;
+
+        Move move = field[moveto.y, moveto.x].GetComponent<Move>();
+        move.MoveTo(new Vector3(moveto.x, -1 * moveto.y, 0));
+        if (isPlayerMove)
+        {
+            moveCount++; //Count++
+            UpdateMoveCounterText(); // æ›´æ–°
+        }
+
         return true;
     }
 
@@ -85,11 +112,11 @@ public class GameManager : MonoBehaviour
                 if (obj != null && obj.tag == "Player")
                 {
                     return new Vector2Int(x, y);
-                }   // ƒvƒŒƒCƒ„[‚ğŒ©‚Â‚¯‚½
+                }   // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’è¦‹ã¤ã‘ãŸ
             }
         }
 
-        return new Vector2Int(-1, -1);  // Œ©‚Â‚©‚ç‚È‚©‚Á‚½
+        return new Vector2Int(-1, -1);  // è¦‹ã¤ã‹ã‚‰ãªã‹ã£ãŸ
     }
 
     void PrintArray()
@@ -113,14 +140,16 @@ public class GameManager : MonoBehaviour
     {
         map = new int[,]
         {
-            { 1, 0, 0, 0, 0, 0, 0, 2, 0 },
-            { 0, 2, 3, 2, 0, 0, 0, 2, 0 },
-            { 0, 0, 0, 0, 0, 0, 0, 2, 0 },
-            { 0, 3, 2, 3, 0, 0, 0, 2, 0 },
-            { 0, 0, 0, 0, 0, 0, 0, 2, 0 },
-            { 0, 0, 0, 0, 0, 0, 0, 2, 0 }
-        };
+            { 4,4, 4, 4, 4, 4,4,},
+            {4, 1, 0, 0, 0, 0,4,},
+            {4, 0, 2, 3, 2, 0,4,},
+            {4, 0, 0, 0, 0, 0, 4},
+            {4, 0, 3, 2, 3, 0, 4,},
+            {4, 0, 0, 0, 0, 0, 4},
+             { 4,4, 4, 4, 4, 4,4,},
 
+        };
+        moveCount = 0; // åˆå§‹åŒ–MoveCount
         PrintArray();
 
         field = new GameObject[
@@ -134,48 +163,82 @@ public class GameManager : MonoBehaviour
             {
                 if (map[y, x] == 1)
                 {
-                    instance =
-                        Instantiate(playerPrefab, new Vector3(x, -1 * y, 0), Quaternion.identity);
-                    field[y, x] = instance;
-                    break;
-                }// ƒvƒŒƒCƒ„[‚ğŒ©‚Â‚¯‚½
+                    GameObject instance =
+                        Instantiate(playerPrefab,
+                        new Vector3(x, -1 * y, 0),
+                        Quaternion.identity);
+                    field[y, x] = instance; // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’ä¿å­˜ã—ã¦ãŠã
+                    // break;  // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã¯ï¼‘ã¤ã ã‘ãªã®ã§æŠœã‘ã‚‹
+                }   // ãƒ—ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’å‡ºã™
                 else if (map[y, x] == 2)
                 {
-                    instance =
-                        Instantiate(boxPrefab, new Vector3(x, -1 * y, 0), Quaternion.identity);
-                    field[y, x] = instance;
-                }   // ” ‚ğŒ©‚Â‚¯‚½
+                    GameObject instance =
+                        Instantiate(boxPrefab,
+                        new Vector3(x, -1 * y, 0),
+                        Quaternion.identity);
+                    field[y, x] = instance; // ç®±ã‚’ä¿å­˜ã—ã¦ãŠã
+                }   // ç®±ã‚’å‡ºã™
+                else if (map[y, x] == 3)
+                {
+                    GameObject instance =
+                        Instantiate(ClearTarget,
+                        new Vector3(x, -1 * y, 0.5f),
+                        Quaternion.identity);
+                }   // CLEARå ´æ‰€ã‚’å‡ºã™
+                else if (map[y, x] == 4)
+                {
+                    GameObject instance =
+                        Instantiate(WallPrefab,
+                        new Vector3(x, -1 * y, 0),
+                        Quaternion.identity);
+                }   // å£ã‚’å‡ºã™
             }
         }
+        UpdateMoveCounterText();
     }
 
     void Update()
     {
+        if (Input.GetKeyDown(KeyCode.Escape))
+        {
+            QuitGame();
+        }
+
+       
+            if (Input.GetKeyDown(KeyCode.R))
+            {
+                ResetGame();
+            }
+        if (isGameCleared)
+        {
+            return; // CLEARä¸­
+        }
+
         if (Input.GetKeyDown(KeyCode.RightArrow))
         {
             var playerPostion = GetPlayerIndex();
-            MoveNumber(playerPostion, playerPostion + Vector2Int.right);
+            MoveNumber(playerPostion, playerPostion + Vector2Int.right, true);
             PrintArray();
         }
 
         if (Input.GetKeyDown(KeyCode.LeftArrow))
         {
             var playerPostion = GetPlayerIndex();
-            MoveNumber(playerPostion, playerPostion + Vector2Int.left);
+            MoveNumber(playerPostion, playerPostion + Vector2Int.left, true);
             PrintArray();
         }
 
         if (Input.GetKeyDown(KeyCode.UpArrow))
         {
             var playerPostion = GetPlayerIndex();
-            MoveNumber(playerPostion, playerPostion - Vector2Int.up);
+            MoveNumber(playerPostion, playerPostion - Vector2Int.up, true);
             PrintArray();
         }
 
         if (Input.GetKeyDown(KeyCode.DownArrow))
         {
             var playerPostion = GetPlayerIndex();
-            MoveNumber(playerPostion, playerPostion - Vector2Int.down);
+            MoveNumber(playerPostion, playerPostion - Vector2Int.down, true);
             PrintArray();
 
         }
@@ -183,8 +246,20 @@ public class GameManager : MonoBehaviour
         if (IsClear())
         {
             ClearText.SetActive(true);
+            isGameCleared = true;
         }
+    }
+    void UpdateMoveCounterText()
+    {
+        moveCounterText.text = "Moves: " + moveCount;
+    }
 
-
+    void QuitGame()
+    {
+#if UNITY_EDITOR
+        UnityEditor.EditorApplication.isPlaying = false;
+#else
+        Application.Quit();
+#endif
     }
 }
